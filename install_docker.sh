@@ -7,3 +7,5 @@ echo 'export DOCKER_BUILDKIT=1' >> ~/.bash_profile
 source ~/.bash_profile
 sudo systemctl enable docker
 sudo systemctl start docker
+
+sudo systemctl status docker
