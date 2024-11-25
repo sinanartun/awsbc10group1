@@ -149,10 +149,10 @@ def handler(event, context):
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
-        bucket_name = os.environ.get('S3_BUCKET_NAME','S3_BUCKET_NAME')
+        bucket_name = os.environ.get('S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
-        local_image_path = 'test.jpeg'
-        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', 'model/model.onnx')
+        local_image_path = event.get('queryStringParameters', {}).get('local_image_path')
+        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
 
         if local_image_path:
             image_data = load_local_image(local_image_path)
