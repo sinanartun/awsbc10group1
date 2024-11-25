@@ -152,7 +152,7 @@ def handler(event, context):
         bucket_name = os.environ.get('S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
         local_image_path = event.get('queryStringParameters', {}).get('local_image_path')
-        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
+        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', 'model/model.onnx')
 
         if local_image_path:
             image_data = load_local_image(local_image_path)
