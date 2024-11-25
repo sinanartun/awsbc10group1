@@ -151,12 +151,12 @@ def handler(event, context):
 
         bucket_name = os.environ.get('S3_BUCKET_NAME','S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
-        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
+        local_image_path = 'test.jpeg'
+        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', 'model/model.onnx')
 
         if local_image_path:
             image_data = load_local_image(local_image_path)
         elif bucket_name and image_key:
-            image_data = download_image_from_s3(bucket_name, image_key)
         else:
             logger.error("Missing image source.")
             return {
