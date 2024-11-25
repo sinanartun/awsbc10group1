@@ -157,6 +157,7 @@ def handler(event, context):
         if local_image_path:
             image_data = load_local_image(local_image_path)
         elif bucket_name and image_key:
+            image_data = download_image_from_s3(bucket_name, image_key)
         else:
             logger.error("Missing image source.")
             return {
