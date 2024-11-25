@@ -1,4 +1,8 @@
+wheel
+setuptools
 boto3
 numpy==1.24.3
 pillow
 onnxruntime
+
+

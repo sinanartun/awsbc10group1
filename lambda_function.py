@@ -75,14 +75,19 @@ def process_predictions(predictions, conf_threshold=0.3):
     """
     try:
         logger.info("Processing predictions.")
+        logger.debug(f"Raw predictions: {predictions}")
+        
         if len(predictions) == 1:
             predictions = predictions[0]
         
         # Ensure predictions have the expected dimensions
         if len(predictions) < 3:
+            logger.error(f"Unexpected prediction dimensions: {len(predictions)}")
             raise ValueError("Predictions do not have the expected dimensions.")
         
         boxes, scores, class_ids = predictions[0], predictions[1], predictions[2]
+        logger.debug(f"Boxes shape: {boxes.shape}, Scores shape: {scores.shape}, Class IDs shape: {class_ids.shape}")
+        
         detections = []
 
         for i in range(len(scores)):
@@ -109,6 +114,11 @@ def run_inference(session, input_data):
         input_name = session.get_inputs()[0].name
         predictions = session.run(None, {input_name: input_data})
         logger.info("Inference completed.")
+        
+        # Log the shape and content of predictions
+        logger.debug(f"Predictions: {predictions}")
+        for i, prediction in enumerate(predictions):
+            logger.debug(f"Prediction {i} shape: {np.array(prediction).shape}")
         
         detections = process_predictions(predictions)
         return detections
@@ -139,10 +149,10 @@ def handler(event, context):
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
-        bucket_name = os.environ.get('S3_BUCKET_NAME')
+        bucket_name = os.environ.get('S3_BUCKET_NAME','S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
-        local_image_path = event.get('queryStringParameters', {}).get('local_image_path')
-        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
+        local_image_path = 'test.jpeg'
+        onnx_model_path = os.environ.get('ONNX_MODEL_PATH', 'model/model.onnx')
 
         if local_image_path:
             image_data = load_local_image(local_image_path)
@@ -161,6 +171,7 @@ def handler(event, context):
         input_data = preprocess_image(image_data, input_shape)
         input_data = input_data.astype(np.float32)
         detections = run_inference(session, input_data)
+        logger.info(f"Processed detections: {detections}")
 
         return {
             "statusCode": 200,
@@ -173,3 +184,21 @@ def handler(event, context):
             "statusCode": 500,
             "body": json.dumps({"error": str(e)})
         }
+
+def main():
+    """
+    Main function to run the handler locally.
+    """
+    event = {
+        "queryStringParameters": {
+            "image_name": "test_image.jpg",
+            "local_image_path": "test.jpeg"
+        }
+    }
+    context = {}  # You can add more context information if needed
+
+    response = handler(event, context)
+    print(json.dumps(response, indent=4))
+
+if __name__ == "__main__":
+    main()
