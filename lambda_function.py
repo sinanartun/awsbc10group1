@@ -83,6 +83,7 @@ def process_predictions(predictions, conf_threshold=0.3):
         # Ensure predictions have the expected dimensions
         if len(predictions) < 3:
             logger.error(f"Unexpected prediction dimensions: {len(predictions)}")
+            logger.debug(f"Prediction content: {predictions}")
             raise ValueError("Predictions do not have the expected dimensions.")
         
         boxes, scores, class_ids = predictions[0], predictions[1], predictions[2]
