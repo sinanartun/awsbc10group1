@@ -181,6 +181,7 @@ def handler(event, context):
 
     except Exception as e:
         logger.error(f"Handler encountered an error: {e}")
+        logger.debug(f"Event: {event}")
         return {
             "statusCode": 500,
             "body": json.dumps({"error": str(e)})
