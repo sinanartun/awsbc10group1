@@ -93,11 +93,7 @@ def process_predictions(predictions, conf_threshold=0.3):
 
         for i in range(len(scores)):
             if scores[i] >= conf_threshold:
-                detection = {
-                    "bbox": boxes[i].tolist(),
-                    "score": scores[i],
-                    "class_id": int(class_ids[i])
-                }
+                detection = f"{scores[i]:.2f} {class_ids[i]}"
                 detections.append(detection)
         
         logger.info("Prediction processing completed.")
