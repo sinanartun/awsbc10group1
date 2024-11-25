@@ -44,13 +44,6 @@ def download_image_from_s3(bucket_name, image_key):
         image_data.seek(0)
         logger.info("Image downloaded successfully.")
         return image_data
-    except s3.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == '403':
-            logger.error("Access denied to the S3 object.")
-            raise PermissionError("Access denied to the S3 object.")
-        else:
-            logger.error(f"Error downloading image from S3: {e}")
-            raise
     except Exception as e:
         logger.error(f"Error downloading image from S3: {e}")
         raise
@@ -68,36 +61,19 @@ def load_model(onnx_model_path):
         logger.error(f"Error loading ONNX model: {e}")
         raise
 
-def process_predictions(predictions, conf_threshold=0.3):
+def adjust_input_shape(input_shape):
     """
-    Process the raw predictions from the ONNX model and return the formatted output.
-    Filters predictions by the confidence threshold.
+    Adjusts the ONNX model input shape by replacing non-numeric dimensions with 1.
     """
     try:
-        logger.info("Processing predictions.")
-        if len(predictions) == 1:
-            predictions = predictions[0]
-        
-        # Ensure predictions have the expected dimensions
-        if len(predictions) < 3:
-            raise ValueError("Predictions do not have the expected dimensions.")
-        
-        boxes, scores, class_ids = predictions[0], predictions[1], predictions[2]
-        detections = []
-
-        for i in range(len(scores)):
-            if scores[i] >= conf_threshold:
-                detection = {
-                    "bbox": boxes[i].tolist(),
-                    "score": scores[i],
-                    "class_id": int(class_ids[i])
-                }
-                detections.append(detection)
-        
-        logger.info("Prediction processing completed.")
-        return detections
+        adjusted_shape = [
+            int(dim) if isinstance(dim, (int, float)) else 1  # Replace non-numeric dimensions with 1
+            for dim in input_shape
+        ]
+        logger.info(f"Adjusted input shape: {adjusted_shape}")
+        return adjusted_shape
     except Exception as e:
-        logger.error(f"Error processing predictions: {e}")
+        logger.error(f"Error adjusting input shape: {e}")
         raise
 
 def run_inference(session, input_data):
@@ -109,9 +85,7 @@ def run_inference(session, input_data):
         input_name = session.get_inputs()[0].name
         predictions = session.run(None, {input_name: input_data})
         logger.info("Inference completed.")
-        
-        detections = process_predictions(predictions)
-        return detections
+        return predictions
     except Exception as e:
         logger.error(f"Error during inference: {e}")
         raise
@@ -123,11 +97,13 @@ def handler(event, context):
     """
     try:
         logger.info(f"Received event: {json.dumps(event)}")
-
+        
+        # Get query string parameters
         bucket_name = os.environ.get('S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
         onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
 
+        # Validate parameters
         if not bucket_name or not image_key:
             logger.error("Missing bucket name or image key.")
             return {
@@ -135,17 +111,30 @@ def handler(event, context):
                 "body": json.dumps({"error": "Missing bucket name or image key"})
             }
 
+        # Download the image
         image_data = download_image_from_s3(bucket_name, image_key)
-        session = load_model(onnx_model_path)
-        input_shape = session.get_inputs()[0].shape
-        input_shape = [int(dim) if isinstance(dim, (int, float)) else 1 for dim in input_shape]
-        input_data = preprocess_image(image_data, input_shape)
-        input_data = input_data.astype(np.float32)
-        detections = run_inference(session, input_data)
 
+        # Load the ONNX model
+        session = load_model(onnx_model_path)
+
+        # Adjust input shape for preprocessing
+        input_shape = adjust_input_shape(session.get_inputs()[0].shape)
+
+        # Preprocess the image
+        input_data = preprocess_image(image_data, input_shape)
+
+        # Ensure input data is the correct type
+        input_data = input_data.astype(np.float32)
+
+        # Perform inference
+        predictions = run_inference(session, input_data)
+
+        # Return predictions as JSON
         return {
             "statusCode": 200,
-            "body": json.dumps({"detections": detections})
+            "body": json.dumps({
+                "predictions": predictions[0].tolist()
+            })
         }
 
     except Exception as e:
