@@ -116,6 +116,21 @@ def run_inference(session, input_data):
         logger.error(f"Error during inference: {e}")
         raise
 
+def load_local_image(image_path):
+    """
+    Loads an image from a local file path.
+    """
+    try:
+        logger.info(f"Loading local image from path: {image_path}")
+        with open(image_path, 'rb') as f:
+            image_data = io.BytesIO(f.read())
+        image_data.seek(0)
+        logger.info("Local image loaded successfully.")
+        return image_data
+    except Exception as e:
+        logger.error(f"Error loading local image: {e}")
+        raise
+
 def handler(event, context):
     """
     AWS Lambda handler function to process an image from S3,
@@ -126,16 +141,20 @@ def handler(event, context):
 
         bucket_name = os.environ.get('S3_BUCKET_NAME')
         image_key = event.get('queryStringParameters', {}).get('image_name')
+        local_image_path = event.get('queryStringParameters', {}).get('local_image_path')
         onnx_model_path = os.environ.get('ONNX_MODEL_PATH', '/opt/model/model.onnx')
 
-        if not bucket_name or not image_key:
-            logger.error("Missing bucket name or image key.")
+        if local_image_path:
+            image_data = load_local_image(local_image_path)
+        elif bucket_name and image_key:
+            image_data = download_image_from_s3(bucket_name, image_key)
+        else:
+            logger.error("Missing image source.")
             return {
                 "statusCode": 400,
-                "body": json.dumps({"error": "Missing bucket name or image key"})
+                "body": json.dumps({"error": "Missing image source"})
             }
 
-        image_data = download_image_from_s3(bucket_name, image_key)
         session = load_model(onnx_model_path)
         input_shape = session.get_inputs()[0].shape
         input_shape = [int(dim) if isinstance(dim, (int, float)) else 1 for dim in input_shape]
